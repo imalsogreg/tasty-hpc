@@ -8,6 +8,7 @@ import qualified Data.Map                as Map
 import           Data.Monoid
 import           Data.Proxy (Proxy(..))
 import           Data.Typeable
+import qualified System.Process          as P
 ------------------------------------------------------------------------------
 import qualified Test.Tasty.Options      as Tasty
 import qualified Test.Tasty.Providers    as Tasty
@@ -35,7 +36,7 @@ hpcRunner = Tasty.TestManager optionDescriptions runner
        True  -> Just $ do
          talkingStick <- newMVar ()
          let hpcFold = Tasty.trivialFold {
-                 Tasty.foldSingle   = runSingle
+                 Tasty.foldSingle   = runSingle talkingStick
                , Tasty.foldResource = (resourceFold talkingStick)
                }
          b <- Tasty.getApp $ Tasty.foldTestTree hpcFold options testTree
@@ -51,16 +52,20 @@ hpcRunner = Tasty.TestManager optionDescriptions runner
    hpcRSpec m = Tasty.ResourceSpec (takeMVar m) (const $ putMVar m ())
 
    ----------------------------------------------------------------------------
-   runSingle :: forall t. Tasty.IsTest t => Tasty.OptionSet ->
+   runSingle :: forall t. Tasty.IsTest t => MVar () -> Tasty.OptionSet ->
                 Tasty.TestName -> t -> Tasty.Ap IO CodeTests
-   runSingle = undefined
-
+   runSingle mv options name test = Tasty.Ap $ do
+     let cmd = "dist/build/testsuite/testsuite -p '" ++ name ++ "'"
+         act = withMVar mv $ \() -> P.runCommand cmd
+     tix <- withMVar mv $ \() -> touchTixWith cmd "testsuite.tix"
+     undefined
 
 ------------------------------------------------------------------------------
-touchTixWith :: FilePath -> IO () -> IO (Maybe Hpc.Tix)
-touchTixWith fp act = do
+touchTixWith :: FilePath -> String -> IO (Maybe Hpc.Tix)
+touchTixWith fp cmd = do
   Hpc.writeTix fp emptyTix
-  act
+  h <- P.runCommand cmd
+  _ <- P.waitForProcess h
   Hpc.readTix fp
 
 

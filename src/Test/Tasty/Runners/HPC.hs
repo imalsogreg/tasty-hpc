@@ -24,6 +24,7 @@ hpcRunner = Tasty.TestManager optionDescriptions runner
                         ,Tasty.Option (Proxy :: Proxy TixPath)
                         ]
 
+   ----------------------------------------------------------------------------
    runner :: Tasty.OptionSet -> Tasty.TestTree -> Maybe (IO Bool)
    runner options testTree = do
      let RunHPC  runHpc  = Tasty.lookupOption options
@@ -37,14 +38,32 @@ hpcRunner = Tasty.TestManager optionDescriptions runner
                  Tasty.foldSingle   = runSingle
                , Tasty.foldResource = (resourceFold talkingStick)
                }
-         let b = Tasty.foldTestTree hpcFold options testTree :: CodeTests
+         b <- Tasty.getApp $ Tasty.foldTestTree hpcFold options testTree
          return (not $ b == mempty)
 
-   resourceFold :: forall a. MVar () -> Tasty.ResourceSpec a -> (IO a -> CodeTests) -> CodeTests
+   ----------------------------------------------------------------------------
+   resourceFold :: forall a. MVar () -> Tasty.ResourceSpec a ->
+                   (IO a -> Tasty.Ap IO CodeTests) -> Tasty.Ap IO CodeTests
    resourceFold mv (Tasty.ResourceSpec acc rel) rFun = undefined
 
+   ----------------------------------------------------------------------------
    hpcRSpec :: MVar () -> Tasty.ResourceSpec ()
    hpcRSpec m = Tasty.ResourceSpec (takeMVar m) (const $ putMVar m ())
 
-   runSingle :: forall t. Tasty.IsTest t => Tasty.OptionSet -> Tasty.TestName -> t -> CodeTests
+   ----------------------------------------------------------------------------
+   runSingle :: forall t. Tasty.IsTest t => Tasty.OptionSet ->
+                Tasty.TestName -> t -> Tasty.Ap IO CodeTests
    runSingle = undefined
+
+
+------------------------------------------------------------------------------
+touchTixWith :: FilePath -> IO () -> IO (Maybe Hpc.Tix)
+touchTixWith fp act = do
+  Hpc.writeTix fp emptyTix
+  act
+  Hpc.readTix fp
+
+
+------------------------------------------------------------------------------
+emptyTix :: Hpc.Tix
+emptyTix = Hpc.Tix []

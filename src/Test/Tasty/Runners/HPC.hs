@@ -4,6 +4,7 @@ module Test.Tasty.Runners.HPC where
 
 ------------------------------------------------------------------------------
 import           Control.Concurrent.MVar
+import           Control.Monad
 import qualified Data.Map                as Map
 import           Data.Monoid
 import           Data.Proxy (Proxy(..))
@@ -15,16 +16,18 @@ import qualified Test.Tasty.Providers    as Tasty
 import qualified Test.Tasty.Runners      as Tasty
 import qualified Trace.Hpc.Tix           as Hpc
 import qualified Trace.Hpc.Mix           as Hpc
-
+------------------------------------------------------------------------------
 import Test.Tasty.Runners.HPC.Internal
 
+
+------------------------------------------------------------------------------
 hpcRunner :: Tasty.Ingredient
 hpcRunner = Tasty.TestManager optionDescriptions runner
   where
    optionDescriptions = [Tasty.Option (Proxy :: Proxy MixPath)
                         ,Tasty.Option (Proxy :: Proxy TixPath)
                         ]
-
+                        
    ----------------------------------------------------------------------------
    runner :: Tasty.OptionSet -> Tasty.TestTree -> Maybe (IO Bool)
    runner options testTree = do
@@ -57,8 +60,21 @@ hpcRunner = Tasty.TestManager optionDescriptions runner
    runSingle mv options name test = Tasty.Ap $ do
      let cmd = "dist/build/testsuite/testsuite -p '" ++ name ++ "'"
          act = withMVar mv $ \() -> P.runCommand cmd
-     tix <- withMVar mv $ \() -> touchTixWith cmd "testsuite.tix"
-     undefined
+     tix' <- withMVar mv $ \() -> touchTixWith cmd "testsuite.tix"
+     case tix' of
+       Nothing                  -> return mempty
+       Just (Hpc.Tix moduleEntries) ->
+         codeMapOfTests moduleEntries
+
+
+------------------------------------------------------------------------------
+codeMapOfTests :: [Hpc.TixModule] -> IO CodeTests
+codeMapOfTests tixMods = do
+  moduleMappings <- forM tixMods $ \(Hpc.TixModule modName _ _ tixCounts) -> do
+    undefined
+  undefined
+
+
 
 ------------------------------------------------------------------------------
 touchTixWith :: FilePath -> String -> IO (Maybe Hpc.Tix)

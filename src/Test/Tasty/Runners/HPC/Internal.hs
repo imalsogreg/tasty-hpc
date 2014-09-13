@@ -45,13 +45,15 @@ instance Tasty.IsOption RunHPC where
   defaultValue = RunHPC False
   parseValue s = RunHPC <$> Tasty.safeRead s
   optionName   = Tagged "hpc"
-  optionHelp   = Tagged "Run hpc after each test, map libray code to test code"
+  optionHelp   = Tagged "Map libray code to test code"
 
 
-newtype CodeTests = CodeTests (Map.Map Mix.MixEntry [(Tasty.TestName,Bool)])
+newtype CodeTests = CodeTests (Map.Map FilePath
+                    (Map.Map Mix.MixEntry [(Tasty.TestName,Bool)]))
                   deriving (Eq)
 
 ------------------------------------------------------------------------------
 instance Monoid CodeTests where
   mempty                            = CodeTests $ Map.empty
-  CodeTests a `mappend` CodeTests b = CodeTests $ Map.unionWith (++) a b
+  CodeTests a `mappend` CodeTests b =
+    CodeTests $ Map.unionWith (Map.unionWith (++)) a b

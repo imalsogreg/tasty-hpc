@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TupleSections #-}
 
 module Test.Tasty.Runners.HPC where
 
@@ -60,19 +61,23 @@ hpcRunner = Tasty.TestManager optionDescriptions runner
    runSingle mv options name test = Tasty.Ap $ do
      let cmd = "dist/build/testsuite/testsuite -p '" ++ name ++ "'"
          act = withMVar mv $ \() -> P.runCommand cmd
+     res  <- Tasty.run t --  TODO Fix this
      tix' <- withMVar mv $ \() -> touchTixWith cmd "testsuite.tix"
      case tix' of
        Nothing                  -> return mempty
        Just (Hpc.Tix moduleEntries) ->
-         codeMapOfTests moduleEntries
+         codeMapOfTests moduleEntries res
 
 
 ------------------------------------------------------------------------------
-codeMapOfTests :: [Hpc.TixModule] -> IO CodeTests
-codeMapOfTests tixMods = do
-  moduleMappings <- forM tixMods $ \(Hpc.TixModule modName _ _ tixCounts) -> do
-    undefined
-  undefined
+codeMapOfTests :: [Hpc.TixModule] -> Tasty.Result -> IO CodeTests
+codeMapOfTests tixMods result = do
+  moduleMappings <- forM tixMods $ \tixMod -> do
+    (Hpc.Mix fp _ _ _ exprs) <- Hpc.readMix ["dist/hpc"] $ Right tixModule
+    let exprCnts = zip (zip exprs (repeat result)) (Hpc.tixModuleTixs tixMod)
+    return . (Hpc.tixModuleName tixMod,) .
+      Map.fromList . map fst $ filter ((>0) . snd) exprCnts
+  return $ undefined
 
 
 

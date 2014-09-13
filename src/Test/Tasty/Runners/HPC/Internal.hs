@@ -49,7 +49,7 @@ instance Tasty.IsOption RunHPC where
 
 
 newtype CodeTests = CodeTests (Map.Map FilePath
-                    (Map.Map Mix.MixEntry [(Tasty.TestName,Bool)]))
+                    (Map.Map Mix.MixEntry [(Tasty.TestName,Tasty.Result)]))
                   deriving (Eq)
 
 ------------------------------------------------------------------------------

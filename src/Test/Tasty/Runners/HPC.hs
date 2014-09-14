@@ -38,6 +38,9 @@ hpcRunner = Tasty.TestReporter optionDescriptions runner
      RunHPC False -> Nothing
      RunHPC True  -> Just $ \_ -> do
        talkingStick <- newMVar ()
+       -- talkingStick is passed among tests to prevent contention over their
+       -- single tix count file. Can this be done by overriding NumThreads
+       -- instead?
        let hpcFold = Tasty.trivialFold {
              Tasty.foldSingle   = runSingle talkingStick
              }
@@ -51,8 +54,11 @@ hpcRunner = Tasty.TestReporter optionDescriptions runner
              -> Tasty.OptionSet -> Tasty.TestName -> t
              -> Tasty.Ap IO CodeTests
    runSingle mv opts name test = Tasty.Ap . withMVar mv $ \_ -> do
-     let cmd = "dist/build/testsuite/testsuite -p '" ++ name ++ "'"
+     let cmd = "dist/build/testsuite/testsuite --quiet -p '" ++ name ++ "'"
      res  <- Tasty.run opts test (print . Tasty.progressText)
+
+     -- Tix files are only written when a process finishes. So we must spawn
+     -- a new tasty process to run each test & get the single-test tix counts     
      tix' <- touchTixWith "testsuite.tix" cmd
      tests <- case tix' of
        Nothing                      -> return mempty
@@ -64,12 +70,14 @@ hpcRunner = Tasty.TestReporter optionDescriptions runner
 codeMapOfTest :: [Hpc.TixModule] -> String -> Tasty.Result -> IO CodeTests
 codeMapOfTest tixMods testName testResult = do
   moduleMappings <- forM tixMods $ \tixMod -> do
-    putStrLn $ "Reading mix for " ++ Hpc.tixModuleName tixMod
     rMix  <- try $ Hpc.readMix ["dist/hpc/fib-0.1"] (Right tixMod)
     case rMix of
-      Left (e :: SomeException) -> print e >> return mempty
-      Right (Hpc.Mix _ _ _ _ exprs) -> do
-        let touched :: [Hpc.MixEntry]
+      -- TODO: What do do when tix file mentions nonexistent mix? For me, tix
+      -- marks happen for Tasty itself for some reason, but I don't have mix
+      -- files for tasty. So for now, tix module entries w/ no mix file
+      Left (e :: SomeException) -> return mempty
+      Right (Hpc.Mix _ _ _ _ exprs) -> do       
+        let touched :: [Hpc.MixEntry]           
             touched = map snd . filter ((>0) . fst) $
                       zip (Hpc.tixModuleTixs tixMod :: [Integer]) exprs
         return . (Hpc.tixModuleName tixMod, ) . ModuleTests $

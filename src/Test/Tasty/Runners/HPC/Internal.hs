@@ -9,6 +9,7 @@ import Data.Tagged (Tagged(..))
 import Data.Typeable
 
 import qualified Trace.Hpc.Mix        as Mix
+import qualified Trace.Hpc.Util       as Hpc
 import qualified Test.Tasty           as Tasty
 import qualified Test.Tasty.Providers as Tasty
 import qualified Test.Tasty.Options   as Tasty
@@ -52,13 +53,14 @@ newtype CodeTests = CodeTests (Map.Map FilePath ModuleTests)
 
 
 newtype ModuleTests =
-  ModuleTests (Map.Map Mix.MixEntry [(Tasty.TestName,Tasty.Result)])
+  ModuleTests (Map.Map Hpc.HpcPos [Tasty.TestName])
 
 
 ------------------------------------------------------------------------------
 instance Monoid CodeTests where
   mempty                            = CodeTests $ Map.empty
-  CodeTests a `mappend` CodeTests b = CodeTests $ a <> b
+  CodeTests a `mappend` CodeTests b = CodeTests $
+                                      Map.unionWith (<>) a b
 
 instance Monoid ModuleTests where
   mempty = ModuleTests mempty
@@ -68,7 +70,7 @@ instance Monoid ModuleTests where
 ------------------------------------------------------------------------------
 instance Show ModuleTests where
   show (ModuleTests m) = unlines . map entry . Map.toList $ m
-    where entry (x,y) = show (snd x) ++  ": Tested by " ++ show (map fst y)
+    where entry (x,y) = show x ++  ": Tested by " ++ show y
 
 instance Show CodeTests where
   show (CodeTests m) = unlines . map showModule . Map.toList $ m

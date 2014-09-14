@@ -31,8 +31,8 @@ library
 
 
 test-suite testsuite
-  other-modules: Test.Tasty.Runners.HPC.Test
-  build-depends  : base >= 4.7 && < 4.8,
+  build-depends:   base >= 4.7 && < 4.8,
+                   containers,
                    tasty >= 0.9 && < 0.10,
                    tasty-hunit >= 0.9 && < 0.10,
                    tasty-hpc >= 0.1 && < 0.2,

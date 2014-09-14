@@ -19,6 +19,7 @@ import qualified Test.Tasty.Providers    as Tasty
 import qualified Test.Tasty.Runners      as Tasty
 import qualified Trace.Hpc.Tix           as Hpc
 import qualified Trace.Hpc.Mix           as Hpc
+import qualified Trace.Hpc.Util          as Hpc
 ------------------------------------------------------------------------------
 import Test.Tasty.Runners.HPC.Internal
 
@@ -65,7 +66,7 @@ hpcRunner = Tasty.TestReporter optionDescriptions runner
      tests <- case tix' of
        Nothing                      -> return mempty
        Just (Hpc.Tix moduleEntries) -> codeMapOfTest moduleEntries name res
-     print $ "After single test, code map is: " ++ show tests
+     putStrLn $ unlines ["After single test, code map is: ", show tests]
      return tests
 
 
@@ -80,11 +81,11 @@ codeMapOfTest tixMods testName testResult = do
     case rMix of
       Left (e :: SomeException) -> print e >> return mempty
       Right (Hpc.Mix _ _ _ _ exprs) -> do
-        let touched :: [Hpc.MixEntry]
-            touched = map snd . filter ((>0) . fst) $
+        let touched :: [Hpc.HpcPos]
+            touched = map fst . map snd . filter ((>0) . fst) $
                       zip (Hpc.tixModuleTixs tixMod :: [Integer]) exprs
         return . (Hpc.tixModuleName tixMod, ) . ModuleTests $
-          Map.fromList [(e, [(testName,testResult)])
+          Map.fromList [(e, [testName])
                        | e <- touched]
 
   return . CodeTests $  Map.fromList  moduleMappings

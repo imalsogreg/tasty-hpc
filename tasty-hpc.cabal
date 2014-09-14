@@ -28,16 +28,3 @@ library
                        tasty-hunit >= 0.9   && < 0.10
   hs-source-dirs:      src
   default-language:    Haskell2010
-
-
-test-suite testsuite
-  other-modules: Test.Tasty.Runners.HPC.Test
-  build-depends  : base >= 4.7 && < 4.8,
-                   tasty >= 0.9 && < 0.10,
-                   tasty-hunit >= 0.9 && < 0.10,
-                   tasty-hpc >= 0.1 && < 0.2,
-                   hpc >= 0.6 && < 0.7
-  hs-source-dirs: test
-  main-is:        Test.hs
-  default-language: Haskell2010
-  type:             exitcode-stdio-1.0

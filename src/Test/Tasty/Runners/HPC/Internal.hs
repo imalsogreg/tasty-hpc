@@ -58,7 +58,7 @@ newtype ModuleTests =
 ------------------------------------------------------------------------------
 instance Monoid CodeTests where
   mempty                            = CodeTests $ Map.empty
-  CodeTests a `mappend` CodeTests b = CodeTests $ a <> b
+  CodeTests a `mappend` CodeTests b = CodeTests $ Map.unionWith (<>) a b
 
 instance Monoid ModuleTests where
   mempty = ModuleTests mempty

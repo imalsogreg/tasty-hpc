@@ -5,7 +5,6 @@ module Test.Tasty.Runners.HPC.Internal where
 import Control.Applicative
 import qualified Data.Map as Map
 import Data.Monoid
-import Data.Proxy  (Proxy(..))
 import Data.Tagged (Tagged(..))
 import Data.Typeable
 
@@ -48,12 +47,32 @@ instance Tasty.IsOption RunHPC where
   optionHelp   = Tagged "Map libray code to test code"
 
 
-newtype CodeTests = CodeTests (Map.Map FilePath
-                    (Map.Map Mix.MixEntry [(Tasty.TestName,Tasty.Result)]))
-                  deriving (Eq)
+------------------------------------------------------------------------------
+newtype CodeTests = CodeTests (Map.Map FilePath ModuleTests)
+
+
+newtype ModuleTests =
+  ModuleTests (Map.Map Mix.MixEntry [(Tasty.TestName,Tasty.Result)])
+
 
 ------------------------------------------------------------------------------
 instance Monoid CodeTests where
   mempty                            = CodeTests $ Map.empty
-  CodeTests a `mappend` CodeTests b =
-    CodeTests $ Map.unionWith (Map.unionWith (++)) a b
+  CodeTests a `mappend` CodeTests b = CodeTests $ a <> b
+
+instance Monoid ModuleTests where
+  mempty = ModuleTests mempty
+  ModuleTests a `mappend` ModuleTests b = ModuleTests $ Map.unionWith (++) a b
+
+
+------------------------------------------------------------------------------
+instance Show ModuleTests where
+  show (ModuleTests m) = unlines . map entry . Map.toList $ m
+    where entry (x,y) = show (snd x) ++  ": Tested by " ++ show (map fst y)
+
+instance Show CodeTests where
+  show (CodeTests m) = unlines . map showModule . Map.toList $ m
+    where
+      showModule (modName, modTests) = unlines ["Module " ++ modName
+                                               , show modTests
+                                               , ""]

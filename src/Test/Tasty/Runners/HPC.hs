@@ -1,14 +1,16 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Tasty.Runners.HPC where
 
 ------------------------------------------------------------------------------
+import           Control.Applicative
 import           Control.Concurrent.MVar
+import           Control.Exception
 import           Control.Monad
 import qualified Data.Map                as Map
 import           Data.Monoid
-import           Data.Proxy (Proxy(..))
 import           Data.Typeable
 import qualified System.Process          as P
 ------------------------------------------------------------------------------
@@ -23,62 +25,69 @@ import Test.Tasty.Runners.HPC.Internal
 
 ------------------------------------------------------------------------------
 hpcRunner :: Tasty.Ingredient
-hpcRunner = Tasty.TestManager optionDescriptions runner
+hpcRunner = Tasty.TestReporter optionDescriptions runner
   where
-   optionDescriptions = [Tasty.Option (Proxy :: Proxy MixPath)
-                        ,Tasty.Option (Proxy :: Proxy TixPath)
+   optionDescriptions = [ Tasty.Option (Proxy :: Proxy RunHPC)
+                        , Tasty.Option (Proxy :: Proxy MixPath)
+                        , Tasty.Option (Proxy :: Proxy TixPath)
                         ]
                         
    ----------------------------------------------------------------------------
-   runner :: Tasty.OptionSet -> Tasty.TestTree -> Maybe (IO Bool)
+   runner :: Tasty.OptionSet -> Tasty.TestTree
+          -> Maybe (Tasty.StatusMap -> IO Bool)
    runner options testTree = do
      let RunHPC  runHpc  = Tasty.lookupOption options
          MixPath mixPath = Tasty.lookupOption options
          TixPath tixPath = Tasty.lookupOption options
      case runHpc of
-       False -> Just (return False)
-       True  -> Just $ do
+       False -> Nothing
+       True  -> Just $ \statusMap -> do
          talkingStick <- newMVar ()
          let hpcFold = Tasty.trivialFold {
-                 Tasty.foldSingle   = runSingle talkingStick
-               , Tasty.foldResource = (resourceFold talkingStick)
+                 Tasty.foldSingle   = runSingle talkingStick statusMap
                }
-         b <- Tasty.getApp $ Tasty.foldTestTree hpcFold options testTree
-         return (not $ b == mempty)
+         cm@(CodeTests m) <- Tasty.getApp $
+                        Tasty.foldTestTree hpcFold options testTree
+         putStrLn $ show cm
+         return (not . Map.null $ m)
 
    ----------------------------------------------------------------------------
-   resourceFold :: forall a. MVar () -> Tasty.ResourceSpec a ->
-                   (IO a -> Tasty.Ap IO CodeTests) -> Tasty.Ap IO CodeTests
-   resourceFold mv (Tasty.ResourceSpec acc rel) rFun = undefined
-
-   ----------------------------------------------------------------------------
-   hpcRSpec :: MVar () -> Tasty.ResourceSpec ()
-   hpcRSpec m = Tasty.ResourceSpec (takeMVar m) (const $ putMVar m ())
-
-   ----------------------------------------------------------------------------
-   runSingle :: forall t. Tasty.IsTest t => MVar () -> Tasty.OptionSet ->
-                Tasty.TestName -> t -> Tasty.Ap IO CodeTests
-   runSingle mv options name test = Tasty.Ap $ do
+   runSingle :: forall t. Tasty.IsTest t => MVar () -> Tasty.StatusMap
+             -> Tasty.OptionSet -> Tasty.TestName -> t
+             -> Tasty.Ap IO CodeTests
+   runSingle mv statusMap opts name test = Tasty.Ap . withMVar mv $ \_ -> do
      let cmd = "dist/build/testsuite/testsuite -p '" ++ name ++ "'"
          act = withMVar mv $ \() -> P.runCommand cmd
-     res  <- Tasty.run t --  TODO Fix this
-     tix' <- withMVar mv $ \() -> touchTixWith cmd "testsuite.tix"
-     case tix' of
-       Nothing                  -> return mempty
-       Just (Hpc.Tix moduleEntries) ->
-         codeMapOfTests moduleEntries res
+     print $ "About to run " ++ name
+     res  <- Tasty.run opts test (print . Tasty.progressText)
+     print $ "Ran " ++ name
+     tix' <- touchTixWith "testsuite.tix" cmd
+     tests <- case tix' of
+       Nothing                      -> return mempty
+       Just (Hpc.Tix moduleEntries) -> codeMapOfTest moduleEntries name res
+     print $ "After single test, code map is: " ++ show tests
+     return tests
 
 
 ------------------------------------------------------------------------------
-codeMapOfTests :: [Hpc.TixModule] -> Tasty.Result -> IO CodeTests
-codeMapOfTests tixMods result = do
-  moduleMappings <- forM tixMods $ \tixMod -> do
-    (Hpc.Mix fp _ _ _ exprs) <- Hpc.readMix ["dist/hpc"] $ Right tixModule
-    let exprCnts = zip (zip exprs (repeat result)) (Hpc.tixModuleTixs tixMod)
-    return . (Hpc.tixModuleName tixMod,) .
-      Map.fromList . map fst $ filter ((>0) . snd) exprCnts
-  return $ undefined
+codeMapOfTest :: [Hpc.TixModule] -> String -> Tasty.Result -> IO CodeTests
+codeMapOfTest tixMods testName testResult = do
+  print $ show (length tixMods) ++ " tix modules"
 
+  moduleMappings <- forM tixMods $ \tixMod -> do
+    putStrLn $ "Reading mix for " ++ Hpc.tixModuleName tixMod
+    rMix  <- try $ Hpc.readMix ["dist/hpc/fib-0.1"] (Right tixMod)
+    case rMix of
+      Left (e :: SomeException) -> print e >> return mempty
+      Right (Hpc.Mix _ _ _ _ exprs) -> do
+        let touched :: [Hpc.MixEntry]
+            touched = map snd . filter ((>0) . fst) $
+                      zip (Hpc.tixModuleTixs tixMod :: [Integer]) exprs
+        return . (Hpc.tixModuleName tixMod, ) . ModuleTests $
+          Map.fromList [(e, [(testName,testResult)])
+                       | e <- touched]
+
+  return . CodeTests $  Map.fromList  moduleMappings
 
 
 ------------------------------------------------------------------------------

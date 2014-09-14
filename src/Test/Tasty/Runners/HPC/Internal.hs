@@ -73,6 +73,5 @@ instance Show ModuleTests where
 instance Show CodeTests where
   show (CodeTests m) = unlines . map showModule . Map.toList $ m
     where
-      showModule (modName, modTests) = unlines ["Module " ++ modName
-                                               , show modTests
-                                               , ""]
+      showModule (modName, modTests) =
+        unlines ["Module " ++ modName, show modTests, ""]

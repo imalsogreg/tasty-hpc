@@ -1,5 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Tasty.Runners.HPC where
@@ -20,7 +20,7 @@ import qualified Trace.Hpc.Tix           as Hpc
 import qualified Trace.Hpc.Mix           as Hpc
 ------------------------------------------------------------------------------
 import Test.Tasty.Runners.HPC.Internal
-
+import Test.Tasty.Runners.HPC.Render
 
 ------------------------------------------------------------------------------
 hpcRunner :: Tasty.Ingredient

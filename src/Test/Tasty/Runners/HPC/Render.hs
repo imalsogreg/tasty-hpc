@@ -1,8 +1,10 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Tasty.Runners.HPC.Render where
 
 ------------------------------------------------------------------------------
+import           Control.Exception
 import           Control.Monad
 import qualified Data.Map                        as Map
 import           Data.String                     (fromString)
@@ -28,8 +30,12 @@ import           Test.Tasty.Runners.HPC.Internal
 testsReport :: CodeTests -> IO ()
 testsReport (CodeTests testMap) =
   forM_ (Map.toList testMap) $ \(fp,modTests) -> do
-    h <- testsOverSrcFile modTests fp
-    writeFile (fp ++ ".html") h
+    print $ "Trying to open file: " ++ fp
+    let fp' = if fp == "fib-0.1/Fib" then "/home/greghale/Programming/throwaway/fib/src/Fib.hs" else ""
+    r <- try $ testsOverSrcFile modTests fp'
+    case r of
+      Left (e :: SomeException)  -> return ()
+      Right h -> writeFile (fp' ++ ".html") h
   
 
 ------------------------------------------------------------------------------
@@ -39,14 +45,14 @@ testsOverSrcFile tests srcFile = do
   case res of
     HSE.ParseFailed _ _      -> error "Bad file parse"
     HSE.ParseOk (modSrc, comms) -> return . B.renderHtml $
-                                   renderModule modSrc
+                                   renderModule modSrc tests
 
 ------------------------------------------------------------------------------
-renderModule :: (HSE.Module HSE.SrcSpanInfo) -> Html.Html
-renderModule (HSE.Module loc modHead modPragmas modImports modDecls) =
+renderModule :: (HSE.Module HSE.SrcSpanInfo) -> ModuleTests -> Html.Html
+renderModule (HSE.Module loc modHead modPragmas modImports modDecls) mTests =
   B.docTypeHtml $ do
     B.head $ B.title "Module"
-    B.body $ forM_ modDecls (flip srcDeclToHtml emptyModules)
+    B.body $ forM_ modDecls (flip srcDeclToHtml mTests)
 
 
 ------------------------------------------------------------------------------
@@ -57,7 +63,7 @@ srcDeclToHtml decl (ModuleTests testMap) =
       
   in case decl of
     (HSE.TypeSig _ _ _) -> B.a ! href (fromString . concat $ matchTestNames) $
-                           B.toHtml (HSE.prettyPrint decl)
+                           B.toHtml (HSE.prettyPrint decl ++ fromString (concat matchTestNames))
     _                   -> B.div . B.toHtml $ HSE.prettyPrint decl
 
 -- for testing

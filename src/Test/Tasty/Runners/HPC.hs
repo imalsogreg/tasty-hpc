@@ -47,6 +47,7 @@ hpcRunner = Tasty.TestReporter optionDescriptions runner
        cm@(CodeTests m) <- Tasty.getApp $
                            Tasty.foldTestTree hpcFold options testTree
        putStrLn $ show cm           -- TODO replace with real output format
+       testsReport cm
        return (not . Map.null $ m)  -- TODO check all tests passed?
 
    ----------------------------------------------------------------------------

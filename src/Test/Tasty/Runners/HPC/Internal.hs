@@ -9,6 +9,8 @@ import Data.Tagged (Tagged(..))
 import Data.Typeable
 
 import qualified Trace.Hpc.Mix        as Mix
+import qualified Trace.Hpc.Tix        as Tix
+import qualified Trace.Hpc.Util       as Hpc
 import qualified Test.Tasty           as Tasty
 import qualified Test.Tasty.Providers as Tasty
 import qualified Test.Tasty.Options   as Tasty
@@ -75,3 +77,9 @@ instance Show CodeTests where
     where
       showModule (modName, modTests) =
         unlines ["Module " ++ modName, show modTests, ""]
+
+showHpcPos :: Hpc.HpcPos -> String
+showHpcPos p = let (r0,c0,r1,c1) = Hpc.fromHpcPos p
+                   in show r0 ++ ":" ++ show c0
+                      ++ "-" ++
+                      show r1 ++ ":" ++ show c1

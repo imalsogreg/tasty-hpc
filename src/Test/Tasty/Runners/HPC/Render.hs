@@ -36,7 +36,7 @@ testsReport (CodeTests testMap) =
     case r of
       Left (e :: SomeException)  -> return ()
       Right h -> writeFile (fp' ++ ".html") h
-  
+
 
 ------------------------------------------------------------------------------
 testsOverSrcFile :: ModuleTests -> FilePath -> IO String
@@ -58,13 +58,13 @@ renderModule (HSE.Module loc modHead modPragmas modImports modDecls) mTests =
 ------------------------------------------------------------------------------
 srcDeclToHtml :: HSE.Decl HSE.SrcSpanInfo -> ModuleTests -> Html.Html
 srcDeclToHtml decl (ModuleTests testMap) =
-  let modTestMatches = Map.filterWithKey (\(p,_) _ -> p == srcSpanToHpc (declSrcSpan decl)) testMap :: Map.Map Hpc.MixEntry [(Tasty.TestName, Tasty.Result)]
+  let modTestMatches = Map.filterWithKey (\(p,_) _ -> p == srcSpanToHpc (declSrcSpan decl)) testMap
       matchTestNames = map fst . concat $ Map.elems modTestMatches :: [Tasty.TestName]
       
   in case decl of
     (HSE.TypeSig _ _ _) -> B.a ! href (fromString . concat $ matchTestNames) $
                            B.toHtml (HSE.prettyPrint decl ++ fromString (concat matchTestNames))
-    _                   -> B.div . B.toHtml $ HSE.prettyPrint decl
+    _                   -> B.div . B.toHtml $ HSE.prettyPrint decl ++ fromString (concat matchTestNames) ++ "Test"
 
 -- for testing
 emptyModules = ModuleTests Map.empty

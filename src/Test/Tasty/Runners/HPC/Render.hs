@@ -31,7 +31,9 @@ testsReport :: CodeTests -> IO ()
 testsReport (CodeTests testMap) =
   forM_ (Map.toList testMap) $ \(fp,modTests) -> do
     print $ "Trying to open file: " ++ fp
-    let fp' = if fp == "fib-0.1/Fib" then "/home/greghale/Programming/throwaway/fib/src/Fib.hs" else ""
+    let fp' = if fp == "fib-0.1/Fib"  -- TODO fix, make general of course
+              then "/home/greghale/Programming/throwaway/fib/src/Fib.hs"
+              else ""
     r <- try $ testsOverSrcFile modTests fp'
     case r of
       Left (e :: SomeException)  -> return ()
@@ -58,13 +60,20 @@ renderModule (HSE.Module loc modHead modPragmas modImports modDecls) mTests =
 ------------------------------------------------------------------------------
 srcDeclToHtml :: HSE.Decl HSE.SrcSpanInfo -> ModuleTests -> Html.Html
 srcDeclToHtml decl (ModuleTests testMap) =
-  let modTestMatches = Map.filterWithKey (\(p,_) _ -> p == srcSpanToHpc (declSrcSpan decl)) testMap
-      matchTestNames = map fst . concat $ Map.elems modTestMatches :: [Tasty.TestName]
+  let modTestMatches = flip Map.filterWithKey testMap $ \(pos,_) _ ->
+        pos == srcSpanToHpc (declSrcSpan decl)
+      matchTestNames = map fst . concat $
+                       Map.elems modTestMatches :: [Tasty.TestName]
       
   in case decl of
-    (HSE.TypeSig _ _ _) -> B.a ! href (fromString . concat $ matchTestNames) $
-                           B.toHtml (HSE.prettyPrint decl ++ fromString (concat matchTestNames))
-    _                   -> B.div . B.toHtml $ HSE.prettyPrint decl ++ fromString (concat matchTestNames) ++ "Test"
+    (HSE.TypeSig _ _ _) ->
+      B.div . B.toHtml $ HSE.prettyPrint decl
+    (HSE.FunBind l matches) ->
+      map (srcMatchToHtml  --   <- Note: I don't want to describe how to render
+                           --      the whole tree! Too many constructors.
+    _ ->
+      B.div . B.toHtml $
+      HSE.prettyPrint decl ++ fromString (concat matchTestNames) ++ "Test"
 
 -- for testing
 emptyModules = ModuleTests Map.empty
@@ -75,10 +84,144 @@ srcSpanToHpc (HSE.SrcSpanInfo sp _) =
                 HSE.srcSpanEndLine sp,   HSE.srcSpanEndColumn sp)
 
 ------------------------------------------------------------------------------
+expSrcSpan :: HSE.Exp HSE.SrcSpanInfo -> HSE.SrcSpanInfo
+expSrcSpan e = case e of
+  HSE.Var l _          -> l
+  HSE.IPVar l _        -> l
+  HSE.Con l _          -> l
+  HSE.Lit l _          -> l
+  HSE.InfixApp l _ _ _ -> l
+  HSE.App l _ _        -> l
+  HSE.NegApp l _       -> l
+  HSE.Lambda l _ _     -> l
+  HSE.Let l _ _        -> l
+  HSE.If l _ _ _       -> l
+  _                    -> emptySrcSpan
+
+emptySrcSpan :: HSE.SrcSpanInfo
+emptySrcSpan = HSE.SrcSpanInfo (HSE.SrcSpan "" 0 0 0 0) []
+{-
+if exp then exp else exp
+MultiIf l [IfAlt l]	
+
+if | exp -> exp ...
+Case l (Exp l) [Alt l]	
+
+case exp of alts
+Do l [Stmt l]	
+
+do-expression: the last statement in the list should be an expression.
+MDo l [Stmt l]	
+
+mdo-expression
+Tuple l Boxed [Exp l]	
+
+tuple expression
+TupleSection l Boxed [Maybe (Exp l)]	
+
+tuple section expression, e.g. (,,3)
+List l [Exp l]	
+
+list expression
+Paren l (Exp l)	
+
+parenthesised expression
+LeftSection l (Exp l) (QOp l)	
+
+left section (exp qop)
+RightSection l (QOp l) (Exp l)	
+
+right section (qop exp)
+RecConstr l (QName l) [FieldUpdate l]	
+
+record construction expression
+RecUpdate l (Exp l) [FieldUpdate l]	
+
+record update expression
+EnumFrom l (Exp l)	
+
+unbounded arithmetic sequence, incrementing by 1: [from ..]
+EnumFromTo l (Exp l) (Exp l)	
+
+bounded arithmetic sequence, incrementing by 1 [from .. to]
+EnumFromThen l (Exp l) (Exp l)	
+
+unbounded arithmetic sequence, with first two elements given [from, then ..]
+EnumFromThenTo l (Exp l) (Exp l) (Exp l)	
+
+bounded arithmetic sequence, with first two elements given [from, then .. to]
+ListComp l (Exp l) [QualStmt l]	
+
+ordinary list comprehension
+ParComp l (Exp l) [[QualStmt l]]	
+
+parallel list comprehension
+ExpTypeSig l (Exp l) (Type l)	
+
+expression with explicit type signature
+VarQuote l (QName l)	
+
+'x for template haskell reifying of expressions
+TypQuote l (QName l)	
+
+''T for template haskell reifying of types
+BracketExp l (Bracket l)	
+
+template haskell bracket expression
+SpliceExp l (Splice l)	
+
+template haskell splice expression
+QuasiQuote l String String	
+
+quasi-quotaion: [$name| string |]
+XTag l (XName l) [XAttr l] (Maybe (Exp l)) [Exp l]	
+
+xml element, with attributes and children
+XETag l (XName l) [XAttr l] (Maybe (Exp l))	
+
+empty xml element, with attributes
+XPcdata l String	
+
+PCDATA child element
+XExpTag l (Exp l)	
+
+escaped haskell expression inside xml
+XChildTag l [Exp l]	
+
+children of an xml element
+CorePragma l String (Exp l)	
+
+CORE pragma
+SCCPragma l String (Exp l)	
+
+SCC pragma
+GenPragma l String (Int, Int) (Int, Int) (Exp l)	
+
+GENERATED pragma
+Proc l (Pat l) (Exp l)	
+
+arrows proc: proc pat -> exp
+LeftArrApp l (Exp l) (Exp l)	
+
+arrow application (from left): exp -< exp
+RightArrApp l (Exp l) (Exp l)	
+
+arrow application (from right): exp >- exp
+LeftArrHighApp l (Exp l) (Exp l)	
+
+higher-order arrow application (from left): exp -<< exp
+RightArrHighApp l (Exp l) (Exp l)	
+
+higher-order arrow application (from right): exp >>- exp
+LCase l [Alt l]	
+-}
+
+
+------------------------------------------------------------------------------
 declSrcSpan :: HSE.Decl HSE.SrcSpanInfo -> HSE.SrcSpanInfo
 declSrcSpan decl = case decl of
-  HSE.ClosedTypeFamDecl l _ _ _ -> l
-  HSE.MinimalPragma l _         -> l
+--  HSE.ClosedTypeFamDecl l _ _ _ -> l -- These are in HSE 1.16
+--  HSE.MinimalPragma l _         -> l -- Two more w/ diff arity btw .15&.16
   HSE.TypeDecl l _ _            -> l
   HSE.TypeFamDecl l _ _         -> l
   HSE.DataDecl l _ _ _ _ _      -> l
@@ -91,11 +234,11 @@ declSrcSpan decl = case decl of
   HSE.InstDecl l _ _ _          -> l
   HSE.DerivDecl l _ _           -> l
   HSE.InfixDecl l _ _ _         -> l
+  HSE.PatBind l _ _ _ _         -> l
   HSE.DefaultDecl l _           -> l
   HSE.SpliceDecl l _            -> l
   HSE.TypeSig l _ _             -> l
   HSE.FunBind l _               -> l
-  HSE.PatBind l _ _ _           -> l
   HSE.ForImp l _ _ _ _ _        -> l
   HSE.ForExp l _ _ _ _          -> l
   HSE.RulePragmaDecl l _        -> l
@@ -105,5 +248,5 @@ declSrcSpan decl = case decl of
   HSE.InlineConlikeSig l _ _    -> l
   HSE.SpecSig l _ _ _           -> l
   HSE.SpecInlineSig l _ _ _ _   -> l
-  HSE.InstSig l _               -> l
+  HSE.InstSig l _ _             -> l
   HSE.AnnPragma l _             -> l

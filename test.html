@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Test</title>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <script>
+      $( document ).ready(function() {
+        console.log( $(".tested").length );
+        $( ".tested" ).hover(f);
+      });
+
+      function f(e) {
+        var t = e.target.getAttribute("tests");
+        console.log(String(e));
+        console.log(t);
+        document.getElementById("testList").innerHTML = t
+      };
+    </script>
+  </head>
+  <body>
+    <h1>Test</h1>
+    <pre>
+fact :: Int -> Int
+<span id="a" tests="fact0 fact1" class="tested">fact 0 = <span tests="fact0">1</span>
+fact n = <span id="b" tests="fact1" class="tested">n * fact (n-1)</span></span>
+</pre>
+    <hr/>
+    <p>Tests:</p>
+    <div id="testList"/>
+  </body>
+</html>

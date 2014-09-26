@@ -1,3 +1,6 @@
+-- | Not sure whether to render code to html by (ab)using hindent here,
+--   or though Test/Tasty/HPC/Render.hs
+
 {-# LANGUAGE DeriveDataTypeable #-}
 
 module Test.Tasty.Runners.HPC.Internal where
@@ -8,13 +11,13 @@ import Data.Monoid
 import Data.Tagged (Tagged(..))
 import Data.Typeable
 
-import qualified Trace.Hpc.Mix        as Mix
-import qualified Trace.Hpc.Tix        as Tix
-import qualified Trace.Hpc.Util       as Hpc
-import qualified Test.Tasty           as Tasty
-import qualified Test.Tasty.Providers as Tasty
-import qualified Test.Tasty.Options   as Tasty
-
+import qualified Trace.Hpc.Mix                   as Mix
+import qualified Trace.Hpc.Tix                   as Tix
+import qualified Trace.Hpc.Util                  as Hpc
+import qualified Test.Tasty                      as Tasty
+import qualified Test.Tasty.Providers            as Tasty
+import qualified Test.Tasty.Options              as Tasty
+import qualified Language.Haskell.Exts.Annotated as HSE
 
 ------------------------------------------------------------------------------
 newtype MixPath = MixPath FilePath
@@ -49,12 +52,8 @@ instance Tasty.IsOption RunHPC where
   optionHelp   = Tagged "Map libray code to test code"
 
 
-------------------------------------------------------------------------------
-newtype CodeTests = CodeTests (Map.Map FilePath ModuleTests)
-
-
-newtype ModuleTests =
-  ModuleTests (Map.Map Mix.MixEntry [(Tasty.TestName,Tasty.Result)])
+newtype CodeTests =
+  CodeTests (Map.Map HSE.SrcSpanInfo [(Tasty.TestName,Tasty.Result)])
 
 
 ------------------------------------------------------------------------------

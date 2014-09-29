@@ -61,24 +61,31 @@ instance Monoid CodeTests where
   mempty                            = CodeTests $ Map.empty
   CodeTests a `mappend` CodeTests b = CodeTests $ Map.unionWith (<>) a b
 
-instance Monoid ModuleTests where
-  mempty = ModuleTests mempty
-  ModuleTests a `mappend` ModuleTests b = ModuleTests $ Map.unionWith (++) a b
-
 
 ------------------------------------------------------------------------------
-instance Show ModuleTests where
-  show (ModuleTests m) = unlines . map entry . Map.toList $ m
-    where entry (x,y) = show (snd x) ++  ": Tested by " ++ show (map fst y)
+instance Show CodeTests where
+  show (CodeTests m) = unlines . map entry . Map.toList $ m
+    where entry (x,y) = show x ++  ": Tested by " ++ show (map fst y)
 
+{-
 instance Show CodeTests where
   show (CodeTests m) = unlines . map showModule . Map.toList $ m
     where
       showModule (modName, modTests) =
         unlines ["Module " ++ modName, show modTests, ""]
+-}
 
 showHpcPos :: Hpc.HpcPos -> String
 showHpcPos p = let (r0,c0,r1,c1) = Hpc.fromHpcPos p
                    in show r0 ++ ":" ++ show c0
                       ++ "-" ++
                       show r1 ++ ":" ++ show c1
+
+------------------------------------------------------------------------------
+hpcToHSE :: (FilePath, Hpc.HpcPos) -> HSE.SrcSpanInfo
+hpcToHSE (f, hpcPos) = let (r0,c0,r1,c1) = Hpc.fromHpcPos hpcPos
+                       in HSE.SrcSpanInfo (HSE.SrcSpan f r0 c0 r1 c1) []
+
+hpcFromHSE :: HSE.SrcSpanInfo -> (FilePath, Hpc.HpcPos)
+hpcFromHSE (HSE.SrcSpanInfo (HSE.SrcSpan f r0 c0 r1 c1) _) =
+  (f, Hpc.toHpcPos (r0,c0,r1,c1));

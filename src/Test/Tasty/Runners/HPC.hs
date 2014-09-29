@@ -22,6 +22,7 @@ import qualified Trace.Hpc.Mix           as Hpc
 import Test.Tasty.Runners.HPC.Internal
 import Test.Tasty.Runners.HPC.Render
 
+{-
 ------------------------------------------------------------------------------
 hpcRunner :: Tasty.Ingredient
 hpcRunner = Tasty.TestReporter optionDescriptions runner
@@ -46,8 +47,8 @@ hpcRunner = Tasty.TestReporter optionDescriptions runner
              }
        cm@(CodeTests m) <- Tasty.getApp $
                            Tasty.foldTestTree hpcFold options testTree
-       putStrLn $ show cm           -- TODO replace with real output format
-       testsReport cm
+--       putStrLn $ show cm           -- TODO replace with real output format
+--       testsReport cm
        return (not . Map.null $ m)  -- TODO check all tests passed?
 
    ----------------------------------------------------------------------------
@@ -99,3 +100,4 @@ touchTixWith tixFilePath cmd = do
 ------------------------------------------------------------------------------
 emptyTix :: Hpc.Tix
 emptyTix = Hpc.Tix []
+-}

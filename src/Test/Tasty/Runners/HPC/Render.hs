@@ -27,6 +27,9 @@ import qualified Test.Tasty.Options              as Tasty
 ------------------------------------------------------------------------------
 import           Test.Tasty.Runners.HPC.Internal 
 
+class (HSE.Annotated ast, HSE.ExactP ast) => PageNode ast
+
+{-
 testsReport :: CodeTests -> IO ()
 testsReport (CodeTests testMap) =
   forM_ (Map.toList testMap) $ \(fp,modTests) -> do
@@ -41,7 +44,7 @@ testsReport (CodeTests testMap) =
 
 
 ------------------------------------------------------------------------------
-testsOverSrcFile :: ModuleTests -> FilePath -> IO String
+testsOverSrcFile :: CodeTests -> FilePath -> IO String
 testsOverSrcFile tests srcFile = do
   res <- HSE.parseFileWithComments HSE.defaultParseMode srcFile
   case res of
@@ -50,7 +53,7 @@ testsOverSrcFile tests srcFile = do
                                    renderModule modSrc tests
 
 ------------------------------------------------------------------------------
-renderModule :: (HSE.Module HSE.SrcSpanInfo) -> ModuleTests -> Html.Html
+renderModule :: (HSE.Module HSE.SrcSpanInfo) -> CodeTests -> Html.Html
 renderModule (HSE.Module loc modHead modPragmas modImports modDecls) mTests =
   B.docTypeHtml $ do
     B.head $ B.title "Module"
@@ -58,8 +61,8 @@ renderModule (HSE.Module loc modHead modPragmas modImports modDecls) mTests =
 
 
 ------------------------------------------------------------------------------
-srcDeclToHtml :: HSE.Decl HSE.SrcSpanInfo -> ModuleTests -> Html.Html
-srcDeclToHtml decl (ModuleTests testMap) =
+srcDeclToHtml :: HSE.Decl HSE.SrcSpanInfo -> CodeTests -> Html.Html
+srcDeclToHtml decl (CodeTests testMap) =
   let modTestMatches = flip Map.filterWithKey testMap $ \(pos,_) _ ->
         pos == srcSpanToHpc (declSrcSpan decl)
       matchTestNames = map fst . concat $
@@ -68,21 +71,22 @@ srcDeclToHtml decl (ModuleTests testMap) =
   in case decl of
     (HSE.TypeSig _ _ _) ->
       B.div . B.toHtml $ HSE.prettyPrint decl
-    (HSE.FunBind l matches) ->
-      map (srcMatchToHtml  --   <- Note: I don't want to describe how to render
+--    (HSE.FunBind l matches) ->
+----      map (srcMatchToHtml  -- <- Note: I don't want to describe how to render
                            --      the whole tree! Too many constructors.
-    _ ->
-      B.div . B.toHtml $
-      HSE.prettyPrint decl ++ fromString (concat matchTestNames) ++ "Test"
+--    _ -> undefined
+--      B.div . B.toHtml $
+--      HSE.prettyPrint decl ++ fromString (concat matchTestNames) ++ "Test"
+
 
 -- for testing
-emptyModules = ModuleTests Map.empty
+emptyModules = CodeTests Map.empty
 
 srcSpanToHpc :: HSE.SrcSpanInfo -> Hpc.HpcPos
 srcSpanToHpc (HSE.SrcSpanInfo sp _) =
   Hpc.toHpcPos (HSE.srcSpanStartLine sp, HSE.srcSpanStartColumn sp,
                 HSE.srcSpanEndLine sp,   HSE.srcSpanEndColumn sp)
-
+-}
 ------------------------------------------------------------------------------
 expSrcSpan :: HSE.Exp HSE.SrcSpanInfo -> HSE.SrcSpanInfo
 expSrcSpan e = case e of

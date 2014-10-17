@@ -65,6 +65,7 @@ hpcRunner = Tasty.TestReporter optionDescriptions runner
      tests <- case tix' of
        Nothing                      -> return mempty
        Just (Hpc.Tix moduleEntries) -> codeMapOfTest moduleEntries name res
+     addTagsToLines (
      return tests
 
 

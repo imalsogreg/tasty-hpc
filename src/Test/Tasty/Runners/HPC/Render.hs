@@ -45,28 +45,46 @@ exprTag boxLabel ts = let (tNames,tResults) = unzip ts in
            ,"\">"]
 
 
-
-
 type PreLine  = T.Text
 type PreBlock = [PreLine]
 
-type TargetFun = Int64 -> Int64
+type TargetFun = Int -> Int
  
 ------------------------------------------------------------------------------
 addTagToLine :: (TargetFun, PreLine)
-             -> (Hpc.MixEntry, [Tasty.TestName,Tasty.TestResult])
+             -> (Hpc.MixEntry, [(Tasty.TestName,Tasty.Result)])
              -> (TargetFun, PreLine)
-addTagToLine (toInsPoint, line) ((boxEntry, srcPos), tests) =
-  
+addTagToLine (toInsPoint, line) ((srcPos, boxLabel), testsResults) =
+  let startTag = exprTag boxLabel testsResults
+      endTag  = "</span>"
+      (_,sPos,_,ePos) = Hpc.fromHpcPos srcPos
+      fI = fromIntegral
+      startPos = toInsPoint . fI $ sPos
+      endPos   = toInsPoint . fI $ ePos
+      (pA,pB,pC) = let (ab, c) = T.splitAt endPos   line
+                       (a,  b) = T.splitAt startPos ab
+                   in  (a,  b,  c)
+      toInsPoint' x
+        | x < startPos   = x
+        | x < endPos     = x + T.length startTag
+        | otherwise      = x + T.length startTag + T.length endTag
+      line' = T.concat [pA, startTag, pB, endTag, pC]
+  in (toInsPoint' . toInsPoint, line')
 
+-- Yuck!
+addTagsToLines :: PreBlock -> CodeTests -> PreBlock
+addTagsToLines lines (CodeTests codeTests) =
+  map snd $ map
+  (\l -> foldl addTagToLine (\x -> x,l) (Map.toList codeTests))
+  lines
 
-
+------------------------------------------------------------------------------
 boxLabelClass :: Hpc.BoxLabel -> T.Text
-boxLabelClass (Hpc.ExpBox b) = T.unwords ["exp-box", T.pack $ show b]
-boxLabelClass (Hpc.LocalBox xs) = T.unwords $ "local-box" : map T.pack xs
+boxLabelClass (Hpc.ExpBox b)       = T.unwords ["exp-box", T.pack $ show b]
+boxLabelClass (Hpc.LocalBox xs)    = T.unwords $ "local-box" : map T.pack xs
 boxLabelClass (Hpc.TopLevelBox xs) =
   T.unwords $ "top-level-box" : map T.pack xs
-boxLabelClass (Hpc.BinBox t b) =
+boxLabelClass (Hpc.BinBox t b)     =
   T.unwords ["bin-box", T.pack $ show t, T.pack $ show b]
 
 

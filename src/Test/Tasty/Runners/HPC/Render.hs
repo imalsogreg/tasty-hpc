@@ -51,7 +51,7 @@ type PreLine  = T.Text
 type PreBlock = [PreLine]
 
 type TargetFun = Int64 -> Int64
-
+ 
 ------------------------------------------------------------------------------
 addTagToLine :: (TargetFun, PreLine)
              -> (Hpc.MixEntry, [Tasty.TestName,Tasty.TestResult])

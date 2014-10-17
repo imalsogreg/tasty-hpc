@@ -8,6 +8,8 @@ import           Control.Exception
 import           Control.Monad
 import qualified Data.Map                        as Map
 import           Data.String                     (fromString)
+import qualified Data.Text                       as T
+import           GHC.Int                         (Int64)
 import           Prelude                         hiding (head, id, div)
 ------------------------------------------------------------------------------
 import qualified Language.Haskell.Exts.Annotated as HSE
@@ -28,6 +30,45 @@ import qualified Test.Tasty.Options              as Tasty
 import           Test.Tasty.Runners.HPC.Internal 
 
 class (HSE.Annotated ast, HSE.ExactP ast) => PageNode ast
+
+showRes :: Tasty.Result -> T.Text
+showRes r = "Result"
+
+
+exprTag :: Hpc.BoxLabel -> [(Tasty.TestName, Tasty.Result)] -> T.Text
+exprTag boxLabel ts = let (tNames,tResults) = unzip ts in
+  T.concat ["<span "
+           ,"class=\"", boxLabelClass boxLabel, "\"> "
+           ,"test-names=\"",T.unwords . map T.pack $ tNames
+           ,"test-results="
+           , T.unwords . map showRes $ tResults
+           ,"\">"]
+
+
+
+
+type PreLine  = T.Text
+type PreBlock = [PreLine]
+
+type TargetFun = Int64 -> Int64
+
+------------------------------------------------------------------------------
+addTagToLine :: (TargetFun, PreLine)
+             -> (Hpc.MixEntry, [Tasty.TestName,Tasty.TestResult])
+             -> (TargetFun, PreLine)
+addTagToLine (toInsPoint, line) ((boxEntry, srcPos), tests) =
+  
+
+
+
+boxLabelClass :: Hpc.BoxLabel -> T.Text
+boxLabelClass (Hpc.ExpBox b) = T.unwords ["exp-box", T.pack $ show b]
+boxLabelClass (Hpc.LocalBox xs) = T.unwords $ "local-box" : map T.pack xs
+boxLabelClass (Hpc.TopLevelBox xs) =
+  T.unwords $ "top-level-box" : map T.pack xs
+boxLabelClass (Hpc.BinBox t b) =
+  T.unwords ["bin-box", T.pack $ show t, T.pack $ show b]
+
 
 {-
 testsReport :: CodeTests -> IO ()

@@ -22,7 +22,7 @@ import qualified Trace.Hpc.Mix           as Hpc
 import Test.Tasty.Runners.HPC.Internal
 import Test.Tasty.Runners.HPC.Render
 
-{-
+
 ------------------------------------------------------------------------------
 hpcRunner :: Tasty.Ingredient
 hpcRunner = Tasty.TestReporter optionDescriptions runner
@@ -71,21 +71,19 @@ hpcRunner = Tasty.TestReporter optionDescriptions runner
 ------------------------------------------------------------------------------
 codeMapOfTest :: [Hpc.TixModule] -> String -> Tasty.Result -> IO CodeTests
 codeMapOfTest tixMods testName testResult = do
-  moduleMappings <- forM tixMods $ \tixMod -> do
+  moduleMappings <- forM tixMods $ \tixMod@(Hpc.TixModule _ _ _ counts) -> do
     rMix  <- try $ Hpc.readMix ["dist/hpc/fib-0.1"] (Right tixMod)
     case rMix of
       -- TODO: What do do when tix file mentions nonexistent mix? For me, tix
       -- marks happen for Tasty itself for some reason, but I don't have mix
       -- files for tasty. So for now, tix module entries w/ no mix file
       Left (e :: SomeException) -> return mempty
-      Right (Hpc.Mix _ _ _ _ exprs) -> do       
-        let touched :: [Hpc.MixEntry]           
-            touched = map snd . filter ((>0) . fst) $
-                      zip (Hpc.tixModuleTixs tixMod :: [Integer]) exprs
-        return . (Hpc.tixModuleName tixMod, ) . ModuleTests $
-          Map.fromList [(e, [(testName,testResult)])
-                       | e <- touched]
-  return . CodeTests $  Map.fromList  moduleMappings
+      Right (Hpc.Mix _ _ _ _ mixEntries) -> do       
+        let mixEntriesWithCounts = zip mixEntries counts
+            touched :: [Hpc.MixEntry]           
+            touched = map fst . filter ((>0) . snd) $ mixEntriesWithCounts
+        return . CodeTests $ Map.fromList [(e, [(testName,testResult)]) | e <- touched]
+  return $ mconcat  moduleMappings
 
 
 ------------------------------------------------------------------------------
@@ -100,4 +98,4 @@ touchTixWith tixFilePath cmd = do
 ------------------------------------------------------------------------------
 emptyTix :: Hpc.Tix
 emptyTix = Hpc.Tix []
--}
+

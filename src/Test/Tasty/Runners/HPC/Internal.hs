@@ -11,8 +11,8 @@ import Data.Monoid
 import Data.Tagged (Tagged(..))
 import Data.Typeable
 
-import qualified Trace.Hpc.Mix                   as Mix
-import qualified Trace.Hpc.Tix                   as Tix
+import qualified Trace.Hpc.Mix                   as Hpc
+import qualified Trace.Hpc.Tix                   as Hpc
 import qualified Trace.Hpc.Util                  as Hpc
 import qualified Test.Tasty                      as Tasty
 import qualified Test.Tasty.Providers            as Tasty
@@ -53,7 +53,7 @@ instance Tasty.IsOption RunHPC where
 
 
 newtype CodeTests =
-  CodeTests (Map.Map HSE.SrcSpanInfo [(Tasty.TestName,Tasty.Result)])
+  CodeTests (Map.Map Hpc.MixEntry [(Tasty.TestName,Tasty.Result)])
 
 
 ------------------------------------------------------------------------------
@@ -67,14 +67,8 @@ instance Show CodeTests where
   show (CodeTests m) = unlines . map entry . Map.toList $ m
     where entry (x,y) = show x ++  ": Tested by " ++ show (map fst y)
 
-{-
-instance Show CodeTests where
-  show (CodeTests m) = unlines . map showModule . Map.toList $ m
-    where
-      showModule (modName, modTests) =
-        unlines ["Module " ++ modName, show modTests, ""]
--}
 
+------------------------------------------------------------------------------
 showHpcPos :: Hpc.HpcPos -> String
 showHpcPos p = let (r0,c0,r1,c1) = Hpc.fromHpcPos p
                    in show r0 ++ ":" ++ show c0

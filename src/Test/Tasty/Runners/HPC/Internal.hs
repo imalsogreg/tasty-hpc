@@ -53,8 +53,7 @@ instance Tasty.IsOption RunHPC where
 
 
 newtype CodeTests =
-  CodeTests (Map.Map Hpc.MixEntry [(Tasty.TestName,Tasty.Result)])
-
+  CodeTests (Map.Map (FilePath, Hpc.MixEntry) [(Tasty.TestName,Tasty.Result)])
 
 ------------------------------------------------------------------------------
 instance Monoid CodeTests where

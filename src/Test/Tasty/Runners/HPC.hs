@@ -38,17 +38,17 @@ hpcRunner = Tasty.TestReporter optionDescriptions runner
    runner options testTree = case Tasty.lookupOption options of
      RunHPC False -> Nothing
      RunHPC True  -> Just $ \_ -> do
+       print "Running!"
        talkingStick <- newMVar ()
        -- talkingStick is passed among tests to prevent contention over their
-       -- single tix count file. Can this be done by overriding NumThreads
-       -- instead?
+       -- single tix count file. Is this the best way?
        let hpcFold = Tasty.trivialFold {
              Tasty.foldSingle   = runSingle talkingStick
              }
        cm@(CodeTests m) <- Tasty.getApp $
                            Tasty.foldTestTree hpcFold options testTree
---       putStrLn $ show cm           -- TODO replace with real output format
---       testsReport cm
+       putStrLn $ show cm           -- TODO replace with real output format
+       testsReports cm
        return (not . Map.null $ m)  -- TODO check all tests passed?
 
    ----------------------------------------------------------------------------
@@ -56,7 +56,9 @@ hpcRunner = Tasty.TestReporter optionDescriptions runner
              -> Tasty.OptionSet -> Tasty.TestName -> t
              -> Tasty.Ap IO CodeTests
    runSingle mv opts name test = Tasty.Ap . withMVar mv $ \_ -> do
+     print "Running!!"
      let cmd = "dist/build/testsuite/testsuite --quiet -p '" ++ name ++ "'"
+         codeFile = "src/Fib.hs" -- TODO Temporary
      res  <- Tasty.run opts test (print . Tasty.progressText)
 
      -- Tix files are only written when a process finishes. So we must spawn
@@ -64,26 +66,33 @@ hpcRunner = Tasty.TestReporter optionDescriptions runner
      tix' <- touchTixWith "testsuite.tix" cmd
      tests <- case tix' of
        Nothing                      -> return mempty
-       Just (Hpc.Tix moduleEntries) -> codeMapOfTest moduleEntries name res
-     addTagsToLines (
+       Just (Hpc.Tix moduleEntries) ->
+         codeMapOfTest codeFile moduleEntries name res
+     testsReports tests
      return tests
 
 
 ------------------------------------------------------------------------------
-codeMapOfTest :: [Hpc.TixModule] -> String -> Tasty.Result -> IO CodeTests
-codeMapOfTest tixMods testName testResult = do
+codeMapOfTest :: FilePath
+              -> [Hpc.TixModule]
+              -> String
+              -> Tasty.Result
+              -> IO CodeTests
+codeMapOfTest codeFile tixMods testName testResult = do
   moduleMappings <- forM tixMods $ \tixMod@(Hpc.TixModule _ _ _ counts) -> do
-    rMix  <- try $ Hpc.readMix ["dist/hpc/fib-0.1"] (Right tixMod)
+    --rMix  <- try $ Hpc.readMix ["dist/hpc/mix/fib-0.1.0.0/fib-0.1.0.0"] (Right tixMod)
+    rMix  <- try $ Hpc.readMix ["dist/hpc/mix/fib-0.1.0.0"] (Right tixMod)
     case rMix of
       -- TODO: What do do when tix file mentions nonexistent mix? For me, tix
       -- marks happen for Tasty itself for some reason, but I don't have mix
       -- files for tasty. So for now, tix module entries w/ no mix file
-      Left (e :: SomeException) -> return mempty
-      Right (Hpc.Mix _ _ _ _ mixEntries) -> do       
+      Left (e :: SomeException) -> print "Exception!" >> return mempty
+      Right (Hpc.Mix _ _ _ _ mixEntries) -> do
+        print "Got a mix!"
         let mixEntriesWithCounts = zip mixEntries counts
             touched :: [Hpc.MixEntry]           
             touched = map fst . filter ((>0) . snd) $ mixEntriesWithCounts
-        return . CodeTests $ Map.fromList [(e, [(testName,testResult)]) | e <- touched]
+        return . CodeTests $ Map.fromList [((codeFile,e), [(testName,testResult)]) | e <- touched]
   return $ mconcat  moduleMappings
 
 

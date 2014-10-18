@@ -6,10 +6,10 @@ module Test.Tasty.Runners.HPC.Render where
 ------------------------------------------------------------------------------
 import           Control.Exception
 import           Control.Monad
+import           Data.List                       (groupBy,nub)
+import           Data.Ord                        (comparing)
 import qualified Data.Map                        as Map
-import           Data.String                     (fromString)
 import qualified Data.Text                       as T
-import           GHC.Int                         (Int64)
 import           Prelude                         hiding (head, id, div)
 ------------------------------------------------------------------------------
 import qualified Language.Haskell.Exts.Annotated as HSE
@@ -38,7 +38,7 @@ showRes r = "Result"
 exprTag :: Hpc.BoxLabel -> [(Tasty.TestName, Tasty.Result)] -> T.Text
 exprTag boxLabel ts = let (tNames,tResults) = unzip ts in
   T.concat ["<span "
-           ,"class=\"", boxLabelClass boxLabel, "\"> "
+           ,"class=\"", boxLabelClass boxLabel, "\" "
            ,"test-names=\"",T.unwords . map T.pack $ tNames
            ,"test-results="
            , T.unwords . map showRes $ tResults
@@ -51,32 +51,35 @@ type PreBlock = [PreLine]
 type TargetFun = Int -> Int
  
 ------------------------------------------------------------------------------
-addTagToLine :: (TargetFun, PreLine)
-             -> (Hpc.MixEntry, [(Tasty.TestName,Tasty.Result)])
+addTagToLine :: Int
              -> (TargetFun, PreLine)
-addTagToLine (toInsPoint, line) ((srcPos, boxLabel), testsResults) =
+             -> ((FilePath,Hpc.MixEntry), [(Tasty.TestName,Tasty.Result)])
+             -> (TargetFun, PreLine)
+addTagToLine lineNum (insFn, line) ((_,(srcPos, boxLabel)), testsResults) =
   let startTag = exprTag boxLabel testsResults
       endTag  = "</span>"
-      (_,sPos,_,ePos) = Hpc.fromHpcPos srcPos
+      (sLine,sPos,eLine,ePos) = Hpc.fromHpcPos srcPos
       fI = fromIntegral
-      startPos = toInsPoint . fI $ sPos
-      endPos   = toInsPoint . fI $ ePos
+      startPos = insFn . fI $ sPos
+      endPos   = insFn . fI $ ePos
       (pA,pB,pC) = let (ab, c) = T.splitAt endPos   line
                        (a,  b) = T.splitAt startPos ab
                    in  (a,  b,  c)
-      toInsPoint' x
+      insFn' x
         | x < startPos   = x
         | x < endPos     = x + T.length startTag
         | otherwise      = x + T.length startTag + T.length endTag
       line' = T.concat [pA, startTag, pB, endTag, pC]
-  in (toInsPoint' . toInsPoint, line')
+  in if lineNum >= sLine && lineNum <= eLine
+     then (insFn' . insFn, line')
+     else (insFn, line)
 
 -- Yuck!
-addTagsToLines :: PreBlock -> CodeTests -> PreBlock
-addTagsToLines lines (CodeTests codeTests) =
-  map snd $ map
-  (\l -> foldl addTagToLine (\x -> x,l) (Map.toList codeTests))
-  lines
+addTagsToLines :: CodeTests -> PreBlock -> PreBlock
+addTagsToLines (CodeTests codeTests) codeLines =
+  map snd $ zipWith
+  (\i l -> foldl (addTagToLine i) (\x -> x,l) (Map.toList codeTests))
+  [0 .. length codeLines] codeLines
 
 ------------------------------------------------------------------------------
 boxLabelClass :: Hpc.BoxLabel -> T.Text
@@ -88,20 +91,27 @@ boxLabelClass (Hpc.BinBox t b)     =
   T.unwords ["bin-box", T.pack $ show t, T.pack $ show b]
 
 
-{-
-testsReport :: CodeTests -> IO ()
-testsReport (CodeTests testMap) =
-  forM_ (Map.toList testMap) $ \(fp,modTests) -> do
+testsReports :: CodeTests -> IO ()
+testsReports (CodeTests testMap) = do
+  let moduleNames  = nub . map fst . Map.keys $ testMap :: [FilePath]
+  forM_ moduleNames $ \fp -> do
+    let thisModuleTests =
+          CodeTests $ Map.filterWithKey (\k _ -> fst k == fp) $ testMap
     print $ "Trying to open file: " ++ fp
     let fp' = if fp == "fib-0.1/Fib"  -- TODO fix, make general of course
               then "/home/greghale/Programming/throwaway/fib/src/Fib.hs"
               else ""
-    r <- try $ testsOverSrcFile modTests fp'
+    r <- try $ moduleReport fp' thisModuleTests
     case r of
-      Left (e :: SomeException)  -> return ()
-      Right h -> writeFile (fp' ++ ".html") h
+      Left (_ :: SomeException)  -> return ()
+      Right h -> writeFile (fp' ++ ".html") (T.unpack h)
+
+moduleReport :: FilePath -> CodeTests -> IO T.Text
+moduleReport fp tests =
+  return . T.unlines . addTagsToLines tests . T.lines . T.pack =<< readFile fp
 
 
+{-
 ------------------------------------------------------------------------------
 testsOverSrcFile :: CodeTests -> FilePath -> IO String
 testsOverSrcFile tests srcFile = do
@@ -117,6 +127,7 @@ renderModule (HSE.Module loc modHead modPragmas modImports modDecls) mTests =
   B.docTypeHtml $ do
     B.head $ B.title "Module"
     B.body $ forM_ modDecls (flip srcDeclToHtml mTests)
+
 
 
 ------------------------------------------------------------------------------

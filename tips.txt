@@ -1,0 +1,67 @@
+<imalsogreg> chrisdone: Tangentially related to both lucid and hindent, I tried for a while to find a way to turn haskell-src-exts adt into html, with a div for each node and class set to the node's constructor
+* fread2282 (3fe9dd85@gateway/web/freenode/ip.63.233.221.133) has joined #haskell
+* akuhlens has quit (Quit: This computer has gone to sleep)
+<chrisdone> imalsogreg: ja?
+<imalsogreg> chrisdone: But got stuck.
+* Jesin (~Jesin@r192085.res.Lehigh.EDU) has joined #haskell
+<imalsogreg> chrisdone: Yah. The intention was to make a test report using tasty. Tasty would mark up the adt to show you invidivual tests' coverage.
+* Eggs_ (~eggs@c-71-198-40-16.hsd1.ca.comcast.net) has joined #haskell
+<imalsogreg> chrisdone: Seemed like the kind of thing you would be interested, but I didn't get very far :/
+* arj has quit (Ping timeout: 258 seconds)
+<biscarch> bitonic: nope. There have just been some things taking up maintainers time (such as moving countries). The 1.0 will use io-streams and the 0.14 was an intermediary release that was fairly recent.
+* bjz has quit (Read error: Connection reset by peer)
+* hiroaki has quit (Ping timeout: 255 seconds)
+* bjz (~bjz@125.253.99.68) has joined #haskell
+* e_svedang has quit (Quit: e_svedang)
+* bjz has quit (Read error: Connection reset by peer)
+* chrisdotcode (~quassel@pool-173-56-56-226.hrbgpa.fios.verizon.net) has joined #haskell
+* mostalive has quit (Ping timeout: 255 seconds)
+<imalsogreg> chrisdone: Thought that maybe hindent could be shoehorned into doing this?
+<chrisdone> imalsogreg: hmm
+* dino_joel has quit (Ping timeout: 240 seconds)
+<imalsogreg> chrisdone: But I quickly ended up falling into something that looked like I'd be writing every constructor's case by hand.
+<imalsogreg> https://github.com/imalsogreg/tasty-hpc/blob/master/src/HIndent/Styles/Html.hs
+* Nervkind1 (~Nervkind@p5487264F.dip0.t-ipconnect.de) has joined #haskell
+* kevin1024 has quit (Ping timeout: 245 seconds)
+<chrisdone> imalsogreg: seems like you need a way to handle things like operators and strings that would contain < and >
+<chrisdone> imalsogreg: maybe you could have an Extender for QOp and for Lit to escape them
+<imalsogreg> chrisdone: Oh, you mean escaping those? Yah
+<newcomer> For some reason the following code waits for input before printing "Enter a string: ". After getting input from user it prints "Enter a string: ". http://lpaste.net/114877
+<chrisdone> imalsogreg: and then just have a catch all extender for the rest of node types to wrap them up
+<chrisdone> imalsogreg: http://hackage.haskell.org/package/hindent-3.9.1/docs/HIndent-Types.html#v:CatchAll
+<Hijiri> newcomer: it's because of output bufferig
+<Hijiri> if you use a terminal this is an issue for most languages
+<Hijiri> call hFlush stdout manually after you have what you want to print buffered
+* Nervkind has quit (Ping timeout: 244 seconds)
+<Hijiri> Alternatively, you can set buffering mode to NoBuffering
+<imalsogreg> chrisdone: Ooh
+<Hijiri> but no buffering is slower
+<haskellquestion> hey guys this is the program you helped me with a ton yesterday. let me know if there are any suggestions/refactorings/improvements i can make. thanks! http://codereview.stackexchange.com/questions/70674/brainfuck-interpreter-in-haskell-40-lines
+<Hijiri> http://hackage.haskell.org/package/base-4.7.0.1/docs/System-IO.html#v:hFlush
+* henesy (~henesy@66.94.195.81) has joined #haskell
+<chrisdone> imalsogreg: you can provide something like (CatchAll (\a -> write ("<div class='" <> typeOf a <> "'>); prettyNoExt a; write "</div>"))
+* lw has quit (Quit: s)
+<newcomer> Hijiri, Got it.
+<newcomer> Thanks
+<Hijiri> np
+* kranius has quit (Ping timeout: 272 seconds)
+<imalsogreg> chrisdone: prettyNoExt a, from the name, it sounds like this doesn't have the extender recursing into a?
+* chaosmasttter (~chaosmast@p5B2FEB52.dip0.t-ipconnect.de) has joined #haskell
+<chrisdone> imalsogreg: it means don't call any extenders for this node, but do so for children of this node
+<imalsogreg> chrisdone: rereading your blogpost, I see that much of what you're telling me now was covered there, haha sorry :)
+<chrisdone> http://hackage.haskell.org/package/hindent-3.9.1/docs/HIndent-Pretty.html#v:prettyNoExt
+* muzzle has quit (Quit: Leaving.)
+<chrisdone> imalsogreg: np =)
+* Church- (~hatter@unaffiliated/church-) has joined #haskell
+* centrinia (~centrinia@107-208-218-105.lightspeed.tukrga.sbcglobal.net) has joined #haskell
+* Thooms has quit (Quit: WeeChat 1.0.1)
+* Thooms (~thooms@2a01:e35:8bbc:f430:9e4e:36ff:feb9:69f4) has joined #haskell
+<imalsogreg> chrisdone: Ok, this looks pretty promising I think, thanks!
+* shigosei (~shigosei@p790209aa.kngwnt01.ap.so-net.ne.jp) has joined #haskell
+<chrisdone> imalsogreg: welcome. let me know if it works, i'd hoped for a use-case like this to work ;)
+* dysinger (~dysinger@cpe-24-94-75-243.hawaii.res.rr.com) has joined #haskell
+* griotspeak (~textual@71.204.87.49) has joined #haskell
+<imalsogreg> chrisdone: I'll let you know in a few months (finishing my degree will keep me boring until then). But when I do get to it I'll be sure to let you know.
+* codyopel has quit (Ping timeout: 255 seconds)
+* jfischoff (~jfischoff@c-69-181-143-84.hsd1.ca.comcast.net) has joined #haskell
+<chrisdone> haha, ok
